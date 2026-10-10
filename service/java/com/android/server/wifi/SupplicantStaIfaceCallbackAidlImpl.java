@@ -63,8 +63,10 @@ import android.hardware.wifi.supplicant.UsdTerminateReasonCode;
 import android.hardware.wifi.supplicant.WpsConfigError;
 import android.hardware.wifi.supplicant.WpsErrorIndication;
 import android.net.MacAddress;
+import android.net.wifi.ScanResult;
 import android.net.wifi.SecurityParams;
 import android.net.wifi.SupplicantState;
+import android.net.wifi.WifiAnnotations;
 import android.net.wifi.WifiConfiguration;
 import android.net.wifi.WifiManager;
 import android.net.wifi.WifiSsid;
@@ -81,6 +83,7 @@ import com.android.server.wifi.hotspot2.WnmData;
 import com.android.server.wifi.hotspot2.anqp.ANQPElement;
 import com.android.server.wifi.hotspot2.anqp.ANQPParser;
 import com.android.server.wifi.hotspot2.anqp.Constants;
+import com.android.server.wifi.rtt.SupplicantWifiRttControllerAidlImpl;
 import com.android.server.wifi.usd.UsdRequestManager;
 import com.android.server.wifi.util.HalAidlUtil;
 import com.android.server.wifi.util.NativeUtil;
@@ -753,6 +756,34 @@ class SupplicantStaIfaceCallbackAidlImpl extends ISupplicantStaIfaceCallback.Stu
         }
     }
 
+    /**
+     * Convert a HAL RttBw bitmask (android.hardware.wifi.supplicant.RttBw) to a
+     * WifiAnnotations.ChannelWidth sequential integer (ScanResult.CHANNEL_WIDTH_*).
+     * halToFrameworkRttPacketBandwidth returns RangingResult.UNSPECIFIED (-1) for
+     * unknown values such as RttBw.INVALID=0. Fall back to CHANNEL_WIDTH_20MHZ
+     * for any negative result.
+     */
+    private static @WifiAnnotations.ChannelWidth int halRttBwToFrameworkChannelWidth(
+            int halRttBw) {
+        int result = SupplicantWifiRttControllerAidlImpl
+                .halToFrameworkRttPacketBandwidth(halRttBw);
+        return result >= 0 ? result : ScanResult.CHANNEL_WIDTH_20MHZ;
+    }
+
+    /**
+     * Convert a HAL RttPreamble bitmask (android.hardware.wifi.supplicant.RttPreamble) to a
+     * WifiAnnotations.PreambleType sequential integer (ScanResult.PREAMBLE_*).
+     * Falls back to PREAMBLE_LEGACY for unknown or invalid values.
+     */
+    private static @WifiAnnotations.PreambleType int halRttPreambleToFrameworkPreamble(
+            int halRttPreamble) {
+        try {
+            return SupplicantWifiRttControllerAidlImpl.halToFrameworkPreamble(halRttPreamble);
+        } catch (Exception e) {
+            return ScanResult.PREAMBLE_LEGACY;
+        }
+    }
+
     @SuppressLint("NewApi")
     private static @SessionCallback.FailureCode int
             convertHalToFrameworkUsdConfigErrorCode(int errorCode) {
@@ -821,10 +852,14 @@ class SupplicantStaIfaceCallbackAidlImpl extends ISupplicantStaIfaceCallback.Stu
                         info.prInfo.isEdcaBasedRstaRoleSupported,
                         info.prInfo.isNtbIstaRoleSupported,
                         info.prInfo.isNtbRstaRoleSupported,
-                        info.prInfo.maxSupportedPacketBandwidthEdcaBased,
-                        info.prInfo.maxSupportedPreambleEdcaBased,
-                        info.prInfo.maxSupportedPacketBandwidthNtb,
-                        info.prInfo.maxSupportedPreambleNtb,
+                        halRttBwToFrameworkChannelWidth(
+                                info.prInfo.maxSupportedPacketBandwidthEdcaBased),
+                        halRttPreambleToFrameworkPreamble(
+                                info.prInfo.maxSupportedPreambleEdcaBased),
+                        halRttBwToFrameworkChannelWidth(
+                                info.prInfo.maxSupportedPacketBandwidthNtb),
+                        halRttPreambleToFrameworkPreamble(
+                                info.prInfo.maxSupportedPreambleNtb),
                         info.prInfo.is6GHzSupported
                 );
             }

@@ -43,6 +43,11 @@ import android.hardware.wifi.NanRangingIndication;
 import android.hardware.wifi.NanStatus;
 import android.hardware.wifi.NanStatusCode;
 import android.hardware.wifi.NpkSecurityAssociation;
+import android.hardware.wifi.RttResult;
+import android.hardware.wifi.RttType;
+import android.net.wifi.rtt.RangingResult;
+import org.mockito.ArgumentCaptor;
+import java.util.ArrayList;
 
 import com.android.server.wifi.WifiBaseTest;
 import com.android.server.wifi.aware.Capabilities;
@@ -427,5 +432,61 @@ public class WifiNanIfaceCallbackAidlImplTest extends WifiBaseTest {
                 eq(NAN_PAIRING_REQUEST_TYPE_SETUP), eq(event.enablePairingCache));
         verify(mFrameworkCallbackMock, never()).eventPairingSecurityAssociationReceived(
                 anyInt(), any());
+    }
+
+    @Test
+    public void testNotifyRangingResults_distanceSdPreservation() {
+        // Case 1: 11mc, successNumber <= 1, distanceSdInMm != 0 -> should be cleared to 0
+        RttResult rttResult11mc = new RttResult();
+        rttResult11mc.type = RttType.TWO_SIDED_11MC;
+        rttResult11mc.successNumber = 1;
+        rttResult11mc.distanceSdInMm = 10;
+        rttResult11mc.addr = new byte[]{0x01, 0x02, 0x03, 0x04, 0x05, 0x06};
+        rttResult11mc.lci = new android.hardware.wifi.WifiInformationElement();
+        rttResult11mc.lci.data = new byte[0];
+        rttResult11mc.lcr = new android.hardware.wifi.WifiInformationElement();
+        rttResult11mc.lcr.data = new byte[0];
+
+        // Case 2: 11az NTB, successNumber <= 1, distanceSdInMm != 0 -> should be preserved
+        RttResult rttResult11azNtb = new RttResult();
+        rttResult11azNtb.type = RttType.TWO_SIDED_11AZ_NTB;
+        rttResult11azNtb.successNumber = 1;
+        rttResult11azNtb.distanceSdInMm = 20;
+        rttResult11azNtb.addr = new byte[]{0x01, 0x02, 0x03, 0x04, 0x05, 0x06};
+        rttResult11azNtb.lci = new android.hardware.wifi.WifiInformationElement();
+        rttResult11azNtb.lci.data = new byte[0];
+        rttResult11azNtb.lcr = new android.hardware.wifi.WifiInformationElement();
+        rttResult11azNtb.lcr.data = new byte[0];
+
+        // Case 3: 11az NTB Secure, successNumber <= 1, distanceSdInMm != 0 -> should be preserved
+        RttResult rttResult11azNtbSecure = new RttResult();
+        rttResult11azNtbSecure.type = RttType.TWO_SIDED_11AZ_NTB_SECURE;
+        rttResult11azNtbSecure.successNumber = 1;
+        rttResult11azNtbSecure.distanceSdInMm = 30;
+        rttResult11azNtbSecure.addr = new byte[]{0x01, 0x02, 0x03, 0x04, 0x05, 0x06};
+        rttResult11azNtbSecure.lci = new android.hardware.wifi.WifiInformationElement();
+        rttResult11azNtbSecure.lci.data = new byte[0];
+        rttResult11azNtbSecure.lcr = new android.hardware.wifi.WifiInformationElement();
+        rttResult11azNtbSecure.lcr.data = new byte[0];
+
+        RttResult[] results = new RttResult[]{rttResult11mc, rttResult11azNtb, rttResult11azNtbSecure};
+        byte sessionId = 5;
+
+        mDut.notifyRangingResults(results, sessionId);
+
+        ArgumentCaptor<ArrayList<RangingResult>> captor = ArgumentCaptor.forClass(ArrayList.class);
+        verify(mFrameworkCallbackMock).notifyRangingResults(captor.capture(), eq(sessionId));
+
+        ArrayList<RangingResult> frameworkResults = captor.getValue();
+        org.junit.Assert.assertEquals(3, frameworkResults.size());
+
+        // 11mc: distanceSdInMm should be cleared to 0
+        org.junit.Assert.assertEquals(0, frameworkResults.get(0).getDistanceStdDevMm());
+
+        // 11az NTB: distanceSdInMm should be preserved (20)
+        org.junit.Assert.assertEquals(20, frameworkResults.get(1).getDistanceStdDevMm());
+
+        // 11az NTB Secure: distanceSdInMm should be preserved (30)
+        org.junit.Assert.assertEquals(30, frameworkResults.get(2).getDistanceStdDevMm());
     }
 }

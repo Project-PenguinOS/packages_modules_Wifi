@@ -631,6 +631,58 @@ public class WifiRttControllerAidlImplTest extends WifiBaseTest {
         verifyNoMoreInteractions(mIWifiRttControllerMock);
     }
 
+    @Test
+    public void testRangeResults_distanceSdPreservation() throws Exception {
+        int cmdId = 55;
+        RttResult[] results = new RttResult[3];
+
+        // Case 1: 11mc, successNumber <= 1, distanceSdInMm != 0 -> should be cleared to 0
+        RttResult res11mc = createRttResult();
+        res11mc.type = RttType.TWO_SIDED_11MC;
+        res11mc.successNumber = 1;
+        res11mc.distanceSdInMm = 10;
+        res11mc.addr = MacAddress.byteAddrFromStringAddr("05:06:07:08:09:0A");
+        results[0] = res11mc;
+
+        // Case 2: 11az NTB, successNumber <= 1, distanceSdInMm != 0 -> should be preserved
+        RttResult res11azNtb = createRttResult();
+        res11azNtb.type = RttType.TWO_SIDED_11AZ_NTB;
+        res11azNtb.successNumber = 1;
+        res11azNtb.distanceSdInMm = 20;
+        res11azNtb.addr = MacAddress.byteAddrFromStringAddr("05:06:07:08:09:0B");
+        results[1] = res11azNtb;
+
+        // Case 3: 11az NTB Secure, successNumber <= 1, distanceSdInMm != 0 -> should be preserved
+        RttResult res11azNtbSecure = createRttResult();
+        res11azNtbSecure.type = RttType.TWO_SIDED_11AZ_NTB_SECURE;
+        res11azNtbSecure.successNumber = 1;
+        res11azNtbSecure.distanceSdInMm = 30;
+        res11azNtbSecure.addr = MacAddress.byteAddrFromStringAddr("05:06:07:08:09:0C");
+        results[2] = res11azNtbSecure;
+
+        // (1) have the HAL call us with results
+        mEventCallbackCaptor.getValue().onResults(cmdId, results);
+
+        // (2) verify call to framework
+        verify(mRangingResultsCallbackMock).onRangingResults(eq(cmdId), mRttResultCaptor.capture());
+
+        // verify contents of the framework results
+        List<RangingResult> rttR = mRttResultCaptor.getValue();
+
+        collector.checkThat("number of entries", rttR.size(), equalTo(3));
+
+        // 11mc: distanceSdInMm should be cleared to 0
+        collector.checkThat("11mc stddev", rttR.get(0).getDistanceStdDevMm(), equalTo(0));
+
+        // 11az NTB: distanceSdInMm should be preserved (20)
+        collector.checkThat("11az Ntb stddev", rttR.get(1).getDistanceStdDevMm(), equalTo(20));
+
+        // 11az NTB Secure: distanceSdInMm should be preserved (30)
+        collector.checkThat("11az Ntb Secure stddev", rttR.get(2).getDistanceStdDevMm(), equalTo(30));
+
+        verifyNoMoreInteractions(mIWifiRttControllerMock);
+    }
+
 
     /**
      * Validate correct cleanup when a null array of results is provided by HAL.

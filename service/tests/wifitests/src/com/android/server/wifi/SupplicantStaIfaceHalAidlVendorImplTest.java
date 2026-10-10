@@ -131,6 +131,7 @@ import android.net.wifi.usd.SubscribeConfig;
 import android.net.wifi.util.Environment;
 import android.os.Handler;
 import android.os.IBinder;
+import android.os.Parcel;
 import android.os.RemoteException;
 import android.os.ServiceSpecificException;
 import android.os.test.TestLooper;
@@ -3644,6 +3645,32 @@ public class SupplicantStaIfaceHalAidlVendorImplTest extends WifiBaseTest {
         assertEquals(UsdServiceProtoType.GENERIC, halPublishConfig.usdBaseConfig.serviceProtoType);
         assertTrue(halPublishConfig.usdBaseConfig.isRangingEnabled);
         assertEquals(SERVICE_NAME, halPublishConfig.usdBaseConfig.serviceName);
+    }
+
+    @Test
+    public void testStartUsdPublishWithNullSelfDeviceIdentityKeyThrowsException() throws Exception {
+        assumeTrue(Environment.isSdkNewerThanB());
+        PublishConfig frameworkPublishConfig = new PublishConfig.Builder(SERVICE_NAME)
+                .setPublishType(PublishConfig.PUBLISH_TYPE_SOLICITED)
+                .setServiceSpecificInfo(SPECIFIC_SERVICE_INFO)
+                .setServiceProtoType(Config.SERVICE_PROTO_TYPE_GENERIC)
+                .setProximityRangingEnabled(true)
+                .build();
+        executeAndValidateInitializationSequence();
+        mDut.setupIface(WLAN0_IFACE_NAME);
+
+        doNothing().when(mISupplicantStaIfaceMock).startUsdPublish(
+                anyInt(), any(UsdPublishConfig.class));
+        assertTrue(mDut.startUsdPublish(WLAN0_IFACE_NAME, USD_CMD_ID, frameworkPublishConfig));
+        ArgumentCaptor<UsdPublishConfig> captor = ArgumentCaptor.forClass(UsdPublishConfig.class);
+        verify(mISupplicantStaIfaceMock).startUsdPublish(eq(USD_CMD_ID), captor.capture());
+        UsdPublishConfig halPublishConfig = captor.getValue();
+        Parcel parcel = Parcel.obtain();
+        try {
+            halPublishConfig.writeToParcel(parcel, 0);
+        } finally {
+            parcel.recycle();
+        }
     }
 
     /**

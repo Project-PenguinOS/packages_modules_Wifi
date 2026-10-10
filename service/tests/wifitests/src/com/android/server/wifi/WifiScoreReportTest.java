@@ -441,6 +441,37 @@ public class WifiScoreReportTest extends WifiBaseTest {
     }
 
     @Test
+    public void testIsUsableChangedTriggersScoreReportWhenScoreUnchanged()
+            throws Exception {
+        mWifiInfo.setRssi(TEST_RSSI);
+        ConnectedScoreResult scoreResult1 = ConnectedScoreResult.builder()
+                .setScore(TEST_SCORE)
+                .setAdjustedScore(ADJUSTED_SCORE)
+                .setIsWifiUsable(true)
+                .build();
+        when(mMockVelocityScorer.generateScoreResult(any(), any(), anyLong(), anyBoolean()))
+                .thenReturn(scoreResult1);
+        mWifiScoreReport.mVelocityBasedConnectedScorer = mMockVelocityScorer;
+
+        // Connect the network and calculate the first score
+        mWifiScoreReport.calculateAndReportScore(mMockWifiUsabilityStatsEntry);
+        verifySentAnyNetworkScore(times(2));
+
+        // Calculate a second score where the integer score remains identical, but usability changes
+        ConnectedScoreResult scoreResult2 = ConnectedScoreResult.builder()
+                .setScore(TEST_SCORE)
+                .setAdjustedScore(ADJUSTED_SCORE)
+                .setIsWifiUsable(false)
+                .build();
+        when(mMockVelocityScorer.generateScoreResult(any(), any(), anyLong(), anyBoolean()))
+                .thenReturn(scoreResult2);
+        mWifiScoreReport.calculateAndReportScore(mMockWifiUsabilityStatsEntry);
+
+        // Verify that usability change (true -> false) triggers score report
+        verifySentAnyNetworkScore(times(3));
+    }
+
+    @Test
     public void calculateAndReportScore_mlInternalScorerAndPrimary() {
         assumeTrue(mIsPrimary);
         mWifiInfo.setRssi(-77);

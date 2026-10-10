@@ -630,10 +630,14 @@ public final class ResponderConfig implements Parcelable {
         boolean is11mcSupported = rangingInfo.is80211mcBasedRangingSupported();
         boolean is11azSupported = rangingInfo.isNtbSecureLtfRangingSupported()
                 || rangingInfo.isNtbNonSecureLtfRangingSupported();
-        int mcChannelWidth = translateFromScanResultToLocalChannelWidth(
-                rangingInfo.getMaxSupportedPacketWidth80211mcBased());
-        int azChannelWidth = translateFromScanResultToLocalChannelWidth(
-                rangingInfo.getMaxSupportedPacketWidthNtb());
+        int mcChannelWidth = is11mcSupported
+                ? translateFromScanResultToLocalChannelWidth(
+                        rangingInfo.getMaxSupportedPacketWidth80211mcBased())
+                : CHANNEL_WIDTH_20MHZ;
+        int azChannelWidth = is11azSupported
+                ? translateFromScanResultToLocalChannelWidth(
+                        rangingInfo.getMaxSupportedPacketWidthNtb())
+                : CHANNEL_WIDTH_20MHZ;
         int channelWidth = CHANNEL_WIDTH_20MHZ;
         if (is11mcSupported && is11azSupported) {
             // Take the upper bound of the bandwidth here, and check the device cap in
@@ -642,8 +646,12 @@ public final class ResponderConfig implements Parcelable {
         } else {
             channelWidth = is11azSupported ? azChannelWidth : mcChannelWidth;
         }
-        int mcPreamble = rangingInfo.getMaxSupportedPreamble80211mcBased();
-        int azPreamble = rangingInfo.getMaxSupportedPreambleNtb();
+        int mcPreamble = is11mcSupported
+                ? rangingInfo.getMaxSupportedPreamble80211mcBased()
+                : PREAMBLE_LEGACY;
+        int azPreamble = is11azSupported
+                ? rangingInfo.getMaxSupportedPreambleNtb()
+                : PREAMBLE_LEGACY;
         int preamble = PREAMBLE_LEGACY;
         if (is11mcSupported && is11azSupported) {
             // Take the upper bound of the preamble here, and check the device cap in

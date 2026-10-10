@@ -275,7 +275,9 @@ public class WifiRttControllerAidlImpl implements IWifiRttController {
                 responderLocation = null;
                 Log.e(TAG, "ResponderLocation: lci/lcr parser failed exception -- " + e);
             }
-            if (rttResult.successNumber <= 1 && rttResult.distanceSdInMm != 0) {
+            if (rttResult.successNumber <= 1 && rttResult.distanceSdInMm != 0
+                    && rttResult.type != RttType.TWO_SIDED_11AZ_NTB
+                    && rttResult.type != RttType.TWO_SIDED_11AZ_NTB_SECURE) {
                 if (mVerboseLoggingEnabled) {
                     Log.w(TAG, "postProcessResults: non-zero distance stdev with 0||1 num "
                             + "samples!? result=" + rttResult);

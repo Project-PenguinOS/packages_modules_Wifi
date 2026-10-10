@@ -4453,6 +4453,118 @@ public class WifiConnectivityManagerTest extends WifiBaseTest {
     }
 
     /**
+     * Helper to stub startScan to immediately deliver a scan failure and advance the mock
+     * clock so the posted onFailure runnable is dispatched by TestLooper.
+     * (msg.when is set to real SystemClock.uptimeMillis which exceeds the mock clock value
+     * CURRENT_SYSTEM_TIME_MS, so moveTimeForward is required to make isIdle() return true.)
+     */
+    private void stubScanFailure(int reason) {
+        doAnswer(new AnswerWithArguments() {
+            public void answer(ScanSettings settings, WifiScannerInternal.ScanListener listener)
+                    throws Exception {
+                listener.onFailure(reason, "Scan failed reason=" + reason);
+                mLooper.moveTimeForward(1000);
+                mLooper.dispatchAll();
+            }
+        }).when(mWifiScanner).startScan(any(), any());
+    }
+
+    /**
+     * Verify that a scan failure with REASON_ABORT while a connection is in progress does not
+     * schedule a delayed retry scan. The connectivity scan will be restarted by
+     * handleConnectionStateChanged() once the connection completes or fails.
+     *
+     * Expected behavior: no delayed single scan is scheduled.
+     */
+    @Test
+    public void testNoRetryScanOnAbortWhileConnecting() {
+        setScreenState(true);
+        when(mPrimaryClientModeManager.isConnecting()).thenReturn(true);
+        stubScanFailure(WifiScanner.REASON_ABORT);
+
+        mWifiConnectivityManager.forceConnectivityScan(WIFI_WORK_SOURCE);
+        mLooper.dispatchAll();
+
+        // Retry alarm should never have been set.
+        mAlarmManager.dispatch(WifiConnectivityManager.RESTART_SINGLE_SCAN_TIMER_TAG);
+        mLooper.dispatchAll();
+
+        // Only the initial scan; no retry.
+        verify(mWifiScanner, times(1)).startScan(any(), any());
+    }
+
+    /**
+     * Verify that a scan failure with REASON_BUSY while a connection is in progress does not
+     * schedule a delayed retry scan. The driver returns REASON_BUSY when it is occupied
+     * processing the connection request and cannot start a new scan.
+     *
+     * Expected behavior: no delayed single scan is scheduled.
+     */
+    @Test
+    public void testNoRetryScanOnBusyWhileConnecting() {
+        setScreenState(true);
+        when(mPrimaryClientModeManager.isConnecting()).thenReturn(true);
+        stubScanFailure(WifiScanner.REASON_BUSY);
+
+        mWifiConnectivityManager.forceConnectivityScan(WIFI_WORK_SOURCE);
+        mLooper.dispatchAll();
+
+        // Retry alarm should never have been set.
+        mAlarmManager.dispatch(WifiConnectivityManager.RESTART_SINGLE_SCAN_TIMER_TAG);
+        mLooper.dispatchAll();
+
+        // Only the initial scan; no retry.
+        verify(mWifiScanner, times(1)).startScan(any(), any());
+    }
+
+    /**
+     * Verify that a scan failure while no connection is in progress still schedules the
+     * normal delayed retry scan, regardless of the failure reason.
+     *
+     * Expected behavior: WifiConnectivityManager schedules a delayed single scan retry.
+     */
+    @Test
+    public void testRetryScanOnFailureWhenNotConnecting() {
+        setScreenState(true);
+        // No connection in progress.
+        when(mPrimaryClientModeManager.isConnecting()).thenReturn(false);
+        stubScanFailure(WifiScanner.REASON_ABORT);
+
+        mWifiConnectivityManager.forceConnectivityScan(WIFI_WORK_SOURCE);
+        mLooper.dispatchAll();
+
+        // Fire the retry alarm once.
+        mAlarmManager.dispatch(WifiConnectivityManager.RESTART_SINGLE_SCAN_TIMER_TAG);
+        mLooper.dispatchAll();
+
+        // Initial scan plus one retry.
+        verify(mWifiScanner, times(2)).startScan(any(), any());
+    }
+
+    /**
+     * Verify that a scan failure with a non-connection-related reason (e.g. REASON_UNSPECIFIED)
+     * while no connection is in progress still schedules the normal delayed retry scan.
+     *
+     * Expected behavior: WifiConnectivityManager schedules a delayed single scan retry.
+     */
+    @Test
+    public void testRetryScanOnUnspecifiedFailureWhenNotConnecting() {
+        setScreenState(true);
+        when(mPrimaryClientModeManager.isConnecting()).thenReturn(false);
+        stubScanFailure(WifiScanner.REASON_UNSPECIFIED);
+
+        mWifiConnectivityManager.forceConnectivityScan(WIFI_WORK_SOURCE);
+        mLooper.dispatchAll();
+
+        // Fire the retry alarm once.
+        mAlarmManager.dispatch(WifiConnectivityManager.RESTART_SINGLE_SCAN_TIMER_TAG);
+        mLooper.dispatchAll();
+
+        // Initial scan plus one retry.
+        verify(mWifiScanner, times(2)).startScan(any(), any());
+    }
+
+    /**
      * Verify that a successful scan result resets scan retry counter
      *
      * Steps

@@ -40,6 +40,7 @@ import android.hardware.wifi.supplicant.RttCapabilities;
 import android.hardware.wifi.supplicant.RttConfig;
 import android.hardware.wifi.supplicant.RttPreamble;
 import android.hardware.wifi.supplicant.RttResult;
+import android.hardware.wifi.supplicant.RttType;
 import android.net.MacAddress;
 import android.net.wifi.ScanResult;
 import android.net.wifi.WifiSsid;
@@ -321,6 +322,51 @@ public class SupplicantWifiRttControllerAidlImplTest {
         verify(mFrameworkCallback).onRangingResults(eq(1), resultsCaptor.capture());
         assertEquals(1, resultsCaptor.getValue().size());
         assertEquals(TEST_MAC_ADDRESS, resultsCaptor.getValue().get(0).getMacAddress());
+    }
+
+
+
+    @Test
+    public void testOnResults_distanceSdPreservation() throws RemoteException {
+        setupDut();
+
+        // Case 1: 11mc, successNumber <= 1, distanceSdMm != 0 -> should be cleared to 0
+        RttResult res11mc = new RttResult();
+        res11mc.type = RttType.TWO_SIDED_11MC;
+        res11mc.successNumber = 1;
+        res11mc.distanceSdMm = 10;
+        res11mc.addr = TEST_MAC_ADDRESS_BYTES;
+        res11mc.lci = new android.hardware.wifi.supplicant.WifiInformationElement();
+        res11mc.lci.data = new byte[0];
+        res11mc.lcr = new android.hardware.wifi.supplicant.WifiInformationElement();
+        res11mc.lcr.data = new byte[0];
+
+        // Case 2: 11az NTB Secure, successNumber <= 1, distanceSdMm != 0 -> should be preserved
+        RttResult res11azNtbSecure = new RttResult();
+        res11azNtbSecure.type = RttType.TWO_SIDED_11AZ_NTB_SECURE;
+        res11azNtbSecure.successNumber = 1;
+        res11azNtbSecure.distanceSdMm = 30;
+        res11azNtbSecure.addr = TEST_MAC_ADDRESS_BYTES;
+        res11azNtbSecure.lci = new android.hardware.wifi.supplicant.WifiInformationElement();
+        res11azNtbSecure.lci.data = new byte[0];
+        res11azNtbSecure.lcr = new android.hardware.wifi.supplicant.WifiInformationElement();
+        res11azNtbSecure.lcr.data = new byte[0];
+
+        RttResult[] halResults = new RttResult[]{res11mc, res11azNtbSecure};
+        mHalCallback.onResults(1, halResults);
+
+        ArgumentCaptor<ArrayList<RangingResult>> resultsCaptor =
+                ArgumentCaptor.forClass(ArrayList.class);
+        verify(mFrameworkCallback).onRangingResults(eq(1), resultsCaptor.capture());
+
+        ArrayList<RangingResult> frameworkResults = resultsCaptor.getValue();
+        assertEquals(2, frameworkResults.size());
+
+        // 11mc: distanceSdMm should be cleared to 0
+        assertEquals(0, frameworkResults.get(0).getDistanceStdDevMm());
+
+        // 11az NTB Secure: distanceSdMm should be preserved (30)
+        assertEquals(30, frameworkResults.get(1).getDistanceStdDevMm());
     }
 
     @Test

@@ -20,7 +20,6 @@ import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertArrayEquals;
 import static org.junit.Assert.assertNotNull;
 import static org.junit.Assert.assertNull;
-import static org.junit.Assert.assertThrows;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.ArgumentMatchers.anyBoolean;
@@ -34,16 +33,16 @@ import static org.mockito.MockitoAnnotations.initMocks;
 
 import android.app.AlarmManager;
 import android.net.wifi.IBooleanListener;
+import android.net.wifi.ScanResult;
+import android.net.wifi.WifiAnnotations;
 import android.net.wifi.usd.Characteristics;
 import android.net.wifi.usd.Config;
 import android.net.wifi.usd.IPublishSessionCallback;
 import android.net.wifi.usd.ISubscribeSessionCallback;
+import android.net.wifi.usd.ProximityRangingInfo;
 import android.net.wifi.usd.PublishConfig;
 import android.net.wifi.usd.SessionCallback;
 import android.net.wifi.usd.SubscribeConfig;
-import android.net.wifi.usd.ProximityRangingInfo;
-import android.net.wifi.WifiAnnotations;
-import android.net.wifi.ScanResult;
 import android.os.IBinder;
 import android.os.RemoteException;
 
@@ -62,7 +61,6 @@ import org.junit.Before;
 import org.junit.Test;
 import org.mockito.InOrder;
 import org.mockito.Mock;
-import org.mockito.ArgumentCaptor;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -592,4 +590,66 @@ public class UsdRequestManagerTest extends WifiBaseTest {
         ProximityRangingInfo result = prCaptor.getValue();
         assertNull(result);
     }
+
+    /**
+     * Test USD publish succeeds even if getCharacteristics() is never called beforehand.
+     */
+    @Test
+    public void testUsdPublishSucceedsWithoutPriorGetCharacteristics() throws RemoteException {
+        UsdRequestManager testManager = new UsdRequestManager(
+                mUsdNativeManager, mWifiThreadRunner, mActiveModeWarden, mClock, mAlarmManager);
+        PublishConfig publishConfig = new PublishConfig.Builder(USD_TEST_SERVICE_NAME)
+                .setAnnouncementPeriodMillis(USD_TEST_PERIOD_MILLIS)
+                .setEventsEnabled(true)
+                .setOperatingFrequenciesMhz(mFreqs)
+                .setRxMatchFilter(mFilter)
+                .setTxMatchFilter(mFilter)
+                .setServiceProtoType(Config.SERVICE_PROTO_TYPE_CSA_MATTER)
+                .setServiceSpecificInfo(mSsi)
+                .setSolicitedTransmissionType(Config.TRANSMISSION_TYPE_UNICAST)
+                .setTtlSeconds(USD_TTL_SEC)
+                .build();
+        when(mPublishSessionCallback.asBinder()).thenReturn(mAppBinder);
+        when(mUsdNativeManager.publish(eq(USD_INTERFACE_NAME), eq(USD_REQUEST_COMMAND_ID),
+                eq(publishConfig))).thenReturn(true);
+
+        testManager.publish(publishConfig, mPublishSessionCallback);
+
+        // On unmodified code, this will fail validation logic due to a null value
+        // of mUsdCapabilities, calling onPublishFailed() instead of native publish.
+        verify(mUsdNativeManager).publish(eq(USD_INTERFACE_NAME), eq(USD_REQUEST_COMMAND_ID),
+                eq(publishConfig));
+        verify(mPublishSessionCallback, times(0)).onPublishFailed(anyInt());
+    }
+
+    /**
+     * Test USD subscribe succeeds even if getCharacteristics() is never called beforehand.
+     */
+    @Test
+    public void testUsdSubscribeSucceedsWithoutPriorGetCharacteristics() throws RemoteException {
+        UsdRequestManager testManager = new UsdRequestManager(
+                mUsdNativeManager, mWifiThreadRunner, mActiveModeWarden, mClock, mAlarmManager);
+        SubscribeConfig subscribeConfig = new SubscribeConfig.Builder(USD_TEST_SERVICE_NAME)
+                .setQueryPeriodMillis(USD_TEST_PERIOD_MILLIS)
+                .setOperatingFrequenciesMhz(mFreqs)
+                .setRxMatchFilter(mFilter)
+                .setTxMatchFilter(mFilter)
+                .setSubscribeType(SubscribeConfig.SUBSCRIBE_TYPE_ACTIVE)
+                .setServiceSpecificInfo(mSsi)
+                .setServiceProtoType(Config.SERVICE_PROTO_TYPE_CSA_MATTER)
+                .setQueryPeriodMillis(USD_TEST_PERIOD_MILLIS)
+                .setTtlSeconds(USD_TTL_SEC).build();
+        when(mSubscribeSessionCallback.asBinder()).thenReturn(mAppBinder);
+        when(mUsdNativeManager.subscribe(USD_INTERFACE_NAME, USD_REQUEST_COMMAND_ID,
+                subscribeConfig)).thenReturn(true);
+
+        testManager.subscribe(subscribeConfig, mSubscribeSessionCallback);
+
+        // On unmodified code, this will fail validation logic due to a null value
+        // of mUsdCapabilities.
+        verify(mUsdNativeManager).subscribe(eq(USD_INTERFACE_NAME), eq(USD_REQUEST_COMMAND_ID),
+                eq(subscribeConfig));
+        verify(mSubscribeSessionCallback, times(0)).onSubscribeFailed(anyInt());
+    }
 }
+

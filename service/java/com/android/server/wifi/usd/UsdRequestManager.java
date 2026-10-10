@@ -22,10 +22,12 @@ import android.annotation.SuppressLint;
 import android.app.AlarmManager;
 import android.net.MacAddress;
 import android.net.wifi.IBooleanListener;
+import android.net.wifi.WifiAnnotations;
 import android.net.wifi.usd.Characteristics;
 import android.net.wifi.usd.Config;
 import android.net.wifi.usd.IPublishSessionCallback;
 import android.net.wifi.usd.ISubscribeSessionCallback;
+import android.net.wifi.usd.ProximityRangingInfo;
 import android.net.wifi.usd.PublishConfig;
 import android.net.wifi.usd.PublishSession;
 import android.net.wifi.usd.PublishSessionCallback;
@@ -33,8 +35,6 @@ import android.net.wifi.usd.SessionCallback;
 import android.net.wifi.usd.SubscribeConfig;
 import android.net.wifi.usd.SubscribeSession;
 import android.net.wifi.usd.SubscribeSessionCallback;
-import android.net.wifi.usd.ProximityRangingInfo;
-import android.net.wifi.WifiAnnotations;
 import android.os.Bundle;
 import android.os.IBinder;
 import android.os.RemoteCallbackList;
@@ -484,11 +484,19 @@ public class UsdRequestManager {
         mRequesterRole = Role.NONE;
     }
 
+    private void ensureUsdCapabilitiesInitialized() {
+        if (mUsdCapabilities == null) {
+            mUsdCapabilities = mUsdNativeManager.getUsdCapabilities();
+        }
+    }
+
     private boolean isUsdPublisherSupported() {
+        ensureUsdCapabilitiesInitialized();
         return mUsdCapabilities != null && mUsdCapabilities.isUsdPublisherSupported;
     }
 
     private boolean isUsdSubscriberSupported() {
+        ensureUsdCapabilitiesInitialized();
         return mUsdCapabilities != null && mUsdCapabilities.isUsdSubscriberSupported;
     }
 

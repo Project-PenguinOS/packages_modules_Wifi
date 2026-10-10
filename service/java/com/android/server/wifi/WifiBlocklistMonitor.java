@@ -610,6 +610,19 @@ public class WifiBlocklistMonitor {
     }
 
     /**
+     * Note that a L2 connection to a bssid was just established (NETWORK_CONNECTION_EVENT).
+     * This only refreshes the timestamp used by the abnormal disconnect time window check, so
+     * that an AP that kicks the STA before the full connection bookkeeping in
+     * {@link #handleBssidConnectionSuccess} runs (e.g. within a few hundred ms) is still
+     * correctly recognized as an abnormal disconnect shortly after connecting, instead of being
+     * compared against a stale connection timestamp from a much earlier successful connection.
+     * Does not reset any failure counters or streaks.
+     */
+    public void noteL2ConnectionEstablished(@NonNull String bssid, @NonNull String ssid) {
+        mWifiScoreCard.setBssidConnectionTimestampMs(ssid, bssid, mClock.getWallClockMillis());
+    }
+
+    /**
      * Reset all failure counters related to a connection.
      *
      * @param bssid A unique identifier of the AP.

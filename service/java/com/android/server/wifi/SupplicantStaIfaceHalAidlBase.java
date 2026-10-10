@@ -4158,10 +4158,13 @@ public abstract class SupplicantStaIfaceHalAidlBase implements ISupplicantStaIfa
             if (mIsUsingMainlineSupplicant || isServiceVersionAtLeast(5)) {
                 aidlConfig.usdBaseConfig.isRangingEnabled =
                     frameworkConfig.isProximityRangingEnabled();
-                aidlConfig.usdBaseConfig.selfDevIk = new DeviceIdentityKey();
-                aidlConfig.usdBaseConfig.selfDevIk.data =
-                    frameworkConfig.getSelfDeviceIdentityKey() != null
-                    ? frameworkConfig.getSelfDeviceIdentityKey() : new byte[0];
+                if (frameworkConfig.getSelfDeviceIdentityKey() != null) {
+                    aidlConfig.usdBaseConfig.selfDevIk = new DeviceIdentityKey();
+                    aidlConfig.usdBaseConfig.selfDevIk.data =
+                            frameworkConfig.getSelfDeviceIdentityKey();
+                } else {
+                    aidlConfig.usdBaseConfig.selfDevIk = null;
+                }
                 aidlConfig.usdBaseConfig.peerDevIks = frameworkToHalDeviceIdentityKeyArray(
                         frameworkConfig.getPeerDeviceIdentityKeys());
             }
@@ -4183,6 +4186,7 @@ public abstract class SupplicantStaIfaceHalAidlBase implements ISupplicantStaIfa
                 ? frameworkConfig.getTxMatchFilterTlv() : new byte[0];
         aidlConfig.usdBaseConfig.serviceProtoType = frameworkToHalProtoType(
                 frameworkConfig.getServiceProtoType());
+        aidlConfig.eventsEnabled = frameworkConfig.isEventsEnabled();
         return aidlConfig;
     }
 
@@ -4262,10 +4266,13 @@ public abstract class SupplicantStaIfaceHalAidlBase implements ISupplicantStaIfa
                 (mIsUsingMainlineSupplicant || isServiceVersionAtLeast(5))) {
                 aidlConfig.usdBaseConfig.isRangingEnabled =
                     frameworkConfig.isProximityRangingEnabled();
-                aidlConfig.usdBaseConfig.selfDevIk = new DeviceIdentityKey();
-                aidlConfig.usdBaseConfig.selfDevIk.data =
-                    frameworkConfig.getSelfDeviceIdentityKey() != null
-                    ? frameworkConfig.getSelfDeviceIdentityKey() : new byte[0];
+                if (frameworkConfig.getSelfDeviceIdentityKey() != null) {
+                    aidlConfig.usdBaseConfig.selfDevIk = new DeviceIdentityKey();
+                    aidlConfig.usdBaseConfig.selfDevIk.data =
+                            frameworkConfig.getSelfDeviceIdentityKey();
+                } else {
+                    aidlConfig.usdBaseConfig.selfDevIk = null;
+                }
                 aidlConfig.usdBaseConfig.peerDevIks = frameworkToHalDeviceIdentityKeyArray(
                     frameworkConfig.getPeerDeviceIdentityKeys());
             }

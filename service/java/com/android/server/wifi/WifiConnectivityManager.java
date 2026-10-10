@@ -1298,6 +1298,17 @@ public class WifiConnectivityManager {
             localLog("SingleScanListener onFailure:"
                     + " reason: " + reason + " description: " + description);
 
+            // When a connection attempt is in progress the driver may fail the scan for
+            // various reasons (REASON_ABORT, REASON_BUSY, etc.). Skip the retry in all
+            // such cases — the connectivity scan will be restarted by
+            // handleConnectionStateChanged() once the connection completes or fails.
+            if (getPrimaryClientModeManager().isConnecting()) {
+                localLog("SingleScanListener: skip retry, scan failed during connection"
+                        + " in progress, reason: " + reason);
+                mSingleScanRestartCount = 0;
+                return;
+            }
+
             // reschedule the scan
             if (mSingleScanRestartCount++ < MAX_SCAN_RESTART_ALLOWED && mScreenOn) {
                 scheduleDelayedSingleScan(mIsFullBandScan);

@@ -737,6 +737,17 @@ public class WifiBlocklistMonitorTest extends WifiBaseTest {
     }
 
     /**
+     * Verify that noteL2ConnectionEstablished updates the connection timestamp.
+     */
+    @Test
+    public void testNoteL2ConnectionEstablished() {
+        long timestamp = 123456L;
+        when(mClock.getWallClockMillis()).thenReturn(timestamp);
+        mWifiBlocklistMonitor.noteL2ConnectionEstablished(TEST_BSSID_1, TEST_SSID_1);
+        verify(mWifiScoreCard).setBssidConnectionTimestampMs(TEST_SSID_1, TEST_BSSID_1, timestamp);
+    }
+
+    /**
      * Verify that handleDhcpProvisioningSuccess resets appropriate blocklist streak counts.
      */
     @Test

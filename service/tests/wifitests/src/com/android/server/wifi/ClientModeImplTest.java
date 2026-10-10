@@ -1241,6 +1241,8 @@ public class ClientModeImplTest extends WifiBaseTest {
     @Test
     public void testConnect() throws Exception {
         connect(null);
+        verify(mWifiBlocklistMonitor).noteL2ConnectionEstablished(eq(TEST_BSSID_STR),
+                eq(mConnectedNetwork.SSID));
     }
 
     private void connect() throws Exception {
@@ -11919,6 +11921,8 @@ public class ClientModeImplTest extends WifiBaseTest {
                 new NetworkConnectionEventInfo(0, TEST_WIFI_SSID, TEST_BSSID_STR, false, null));
         mLooper.dispatchAll();
         verify(mWifiMetrics).onRoamComplete(eq(WIFI_IFACE_NAME));
+        verify(mWifiBlocklistMonitor, times(2)).noteL2ConnectionEstablished(eq(TEST_BSSID_STR),
+                eq(mConnectedNetwork.SSID));
     }
 
     /**

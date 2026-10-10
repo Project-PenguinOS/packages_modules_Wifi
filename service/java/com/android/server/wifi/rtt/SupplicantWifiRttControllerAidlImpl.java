@@ -74,6 +74,28 @@ public class SupplicantWifiRttControllerAidlImpl implements ISupplicantWifiRttCo
      */
     private static final int MICROS_IN_100_MICROS_UNIT = 100;
 
+    /**
+     * Maximum number of measurement times supported.
+     *
+     * Reference: Proximity Ranging Implementation Considerations for P2P Operation,
+     * section 5.3 Proximity Ranging Availability subelement.
+     *
+     * Meas Per AW field shall indicate the number of measurements attempts per AW.
+     */
+    private static final int MAX_NTB_MEAS_PER_AW = 4;
+
+    /**
+     * Default number of NTB (Non-Trigger Based) measurement repetitions per Availability Window
+     * when the requested value exceeds the maximum supported value. This is a relatively stable
+     * value for valid ranging results.
+     *
+     * This value is used when a ranging request specifies more NTB measurement
+     * repetitions than the maximum supported by the device ({@link #MAX_NTB_MEAS_PER_AW}).
+     * In such cases, the number of repetitions is capped at this default value to prevent
+     * unsupported configurations from causing ranging failures.
+     */
+    private static final int DEFAULT_NTB_REPETITIONS_PER_MEASUREMENT = 1;
+
     private android.hardware.wifi.supplicant.ISupplicantWifiRttController mWifiRttController;
     private SupplicantWifiRttController.ProximityRangingCapabilities mPrCapabilities;
     private SupplicantWifiRttControllerEventCallback mHalCallback;
@@ -358,7 +380,7 @@ public class SupplicantWifiRttControllerAidlImpl implements ISupplicantWifiRttCo
             Log.v(TAG, "onContinuousRangingTerminated: cmdId=" + cmdId + ", reason=" + reason);
             for (SupplicantWifiRttController.SupplicantWifiRttControllerEventCallback
                     callback : mRttEventCallbacks) {
-                callback.onContinuousRangingStatusChanged(cmdId,
+                callback.onContinuousRangingTerminated(cmdId,
                         halToFrameworkRangingTerminateReason(reason));
             }
         }
@@ -394,7 +416,8 @@ public class SupplicantWifiRttControllerAidlImpl implements ISupplicantWifiRttCo
                 responderLocation = null;
                 Log.e(TAG, "ResponderLocation: lci/lcr parser failed exception -- " + e);
             }
-            if (rttResult.successNumber <= 1 && rttResult.distanceSdMm != 0) {
+            if (rttResult.successNumber <= 1 && rttResult.distanceSdMm != 0
+                    && rttResult.type != RttType.TWO_SIDED_11AZ_NTB_SECURE) {
                 if (mVerboseLoggingEnabled) {
                     Log.w(TAG, "postProcessResults: non-zero distance stdev with 0||1 num "
                             + "samples!? result=" + rttResult);
@@ -587,7 +610,12 @@ public class SupplicantWifiRttControllerAidlImpl implements ISupplicantWifiRttCo
                 config.mustRequestLci = true;
                 config.mustRequestLcr = true;
                 config.numFramesPerBurst = (byte) request.mRttBurstSize;
-                config.numNtbRepetitionsPerMeasurement = (byte) request.mRttBurstSize;
+                if (request.mRttBurstSize > 0 && request.mRttBurstSize < MAX_NTB_MEAS_PER_AW) {
+                    config.numNtbRepetitionsPerMeasurement = (byte) request.mRttBurstSize;
+                } else {
+                    config.numNtbRepetitionsPerMeasurement =
+                        DEFAULT_NTB_REPETITIONS_PER_MEASUREMENT;
+                }
                 config.numRetriesPerFtmr = 3;
                 config.burstDuration = (byte) WifiRttController.getOptimumBurstDuration(
                         request.mRttBurstSize);

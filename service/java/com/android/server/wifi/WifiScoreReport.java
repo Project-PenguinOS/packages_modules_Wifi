@@ -415,8 +415,9 @@ public class WifiScoreReport {
      */
     private void reportNetworkScoreToConnectivityServiceIfNecessary(int adjustedScore,
             boolean isUsable) {
+        boolean isUsableChanged = isUsable != mWifiInfo.isUsable();
         mWifiInfo.setUsable(isUsable);
-        if (adjustedScore == mWifiInfo.getScore()) {
+        if (adjustedScore == mWifiInfo.getScore() && !isUsableChanged) {
             return;
         } else {
             if (mVerboseLoggingEnabled) {

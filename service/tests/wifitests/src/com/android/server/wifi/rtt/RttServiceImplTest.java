@@ -2240,6 +2240,40 @@ public class RttServiceImplTest extends WifiBaseTest {
     }
 
     @Test
+    public void testStartContinuousRanging_PreservesCustomizedProperties() throws Exception {
+        setupRttServiceForProximityRanging();
+        RangingRequest dummyRequest = RttTestUtils.getDummyContinuousRangingRequest();
+        ResponderConfig responder = dummyRequest.mRttPeers.get(0);
+
+        int customBurstSize = 15;
+        int customSecurityMode = RangingRequest.SECURITY_MODE_OPPORTUNISTIC;
+
+        RangingRequest request = new RangingRequest.Builder()
+                .addResponder(responder)
+                .setRttBurstSize(customBurstSize)
+                .setSecurityMode(customSecurityMode)
+                .build();
+
+        IContinuousRangingResultCallback callback = mock(IContinuousRangingResultCallback.class);
+        IBinder binder = mock(IBinder.class);
+        when(callback.asBinder()).thenReturn(binder);
+        when(mMockSupplicantRttController.rangeRequest(anyInt(), any(RangingRequest.class)))
+                .thenReturn(true);
+
+        mDut.startContinuousRanging(binder, mPackageName, mFeatureId, null, request,
+                callback);
+        mMockLooper.dispatchAll();
+
+        verify(mMockSupplicantRttController).rangeRequest(mIntCaptor.capture(),
+                mRequestCaptor.capture());
+
+        RangingRequest capturedRequest = mRequestCaptor.getValue();
+        assertNotNull(capturedRequest);
+        assertEquals(customBurstSize, capturedRequest.getRttBurstSize());
+        assertEquals(customSecurityMode, capturedRequest.getSecurityMode());
+    }
+
+    @Test
     public void testStartContinuousRangingSuccessWithUsdPeerId() throws Exception {
         setupRttServiceForProximityRanging();
         RangingRequest request = RttTestUtils.getDummyContinuousRangingRequestWithUsdPeerId();
