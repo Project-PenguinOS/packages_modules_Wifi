@@ -2428,6 +2428,21 @@ public class ClientModeImplTest extends WifiBaseTest {
     }
 
     /**
+     * Verify that when the primary connects with a pinned BSSID, firmware roaming
+     * is disabled (ROAMING_MODE_NONE) regardless of stored per-SSID roaming mode.
+     */
+    @Test
+    public void testPerSsidRoamingModePrimary_bssidPinned() throws Exception {
+        when(mWifiRoamingConfigStore.getRoamingMode(TEST_SSID)).thenReturn(
+                WifiManager.ROAMING_MODE_NORMAL);
+        mConnectedNetwork.BSSID = TEST_BSSID_STR;
+        connect();
+        verify(mWifiRoamingConfigStore, never()).getRoamingMode(anyString());
+        verify(mWifiNative).setRoamingMode(anyString(),
+                eq(WifiManager.ROAMING_MODE_NONE));
+    }
+
+    /**
      * Verify that when the secondary connects, roaming mode is not set.
      */
     @Test

@@ -7802,13 +7802,17 @@ public class ClientModeImpl extends StateMachine implements ClientMode {
             mWifiMetrics.noteFirstL3ConnectionAfterBoot(true);
             updateCurrentConnectionInfo();
             sendConnectedState();
-            // Set the roaming policy for the currently connected network
+            // Set the roaming policy for the currently connected network.
+            // If the WifiConfiguration has a pinned BSSID (e.g. from a NetworkSuggestion with a
+            // specific BSSID), firmware roaming must be disabled: any inter-AP roam would update
+            // WifiNetworkAgentSpecifier's BSSID, which ConnectivityService treats as an immutable
+            // capability change and reaps the network.
             if (getClientRoleForMetrics(config)
                     != WifiStatsLog.WIFI_CONNECTION_RESULT_REPORTED__ROLE__ROLE_CLIENT_LOCAL_ONLY) {
                 if (isPrimary()) {
                     registerConnectivityDiagnosticsCallbackIfNeeded();
                     mWifiInjector.getWifiRoamingModeManager().applyWifiRoamingMode(
-                            mInterfaceName, mWifiInfo.getSSID());
+                            mInterfaceName, mWifiInfo.getSSID(), config.BSSID != null);
                 }
                 if (SdkLevel.isAtLeastV() && mWifiInjector.getWifiVoipDetector() != null) {
                     mWifiInjector.getWifiVoipDetector().notifyWifiConnected(true,

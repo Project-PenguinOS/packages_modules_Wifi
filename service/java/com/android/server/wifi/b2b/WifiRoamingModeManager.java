@@ -103,10 +103,28 @@ public class WifiRoamingModeManager {
      * @param ssid  represents the name of the network.
      */
     public void applyWifiRoamingMode(String iface, String ssid) {
-        int roamingMode = mWifiRoamingConfigStore.getRoamingMode(ssid);
+        applyWifiRoamingMode(iface, ssid, false);
+    }
+
+    /**
+     * Apply roaming policy to the provided network, with optional BSSID-pin override.
+     *
+     * When {@code bssidPinned} is true (e.g. a NetworkSuggestion with a specific BSSID, or a
+     * WifiConfiguration with BSSID set), firmware roaming is forced to
+     * {@link WifiManager#ROAMING_MODE_NONE} regardless of any stored per-SSID policy. This
+     * prevents the firmware from roaming to a different AP and invalidating the BSSID pin.
+     *
+     * @param iface       represents the name of the wifi interface.
+     * @param ssid        represents the name of the network.
+     * @param bssidPinned true if the active WifiConfiguration has a pinned BSSID.
+     */
+    public void applyWifiRoamingMode(String iface, String ssid, boolean bssidPinned) {
+        int roamingMode = bssidPinned ? WifiManager.ROAMING_MODE_NONE
+                : mWifiRoamingConfigStore.getRoamingMode(ssid);
         if (mVerboseLoggingEnabled) {
             Log.i(TAG, "Applying roaming policy for network "
-                    + ssid + " with value " + roamingMode);
+                    + ssid + " with value " + roamingMode
+                    + " bssidPinned=" + bssidPinned);
         }
         @WifiStatusCode int errorCode = mWifiNative.setRoamingMode(iface, roamingMode);
         switch (errorCode) {

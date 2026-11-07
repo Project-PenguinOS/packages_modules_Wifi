@@ -102,4 +102,22 @@ public class WifiRoamingModeManagerTest extends WifiBaseTest {
         mWifiRoamingModeManager.applyWifiRoamingMode(WIFI_IFACE_NAME, TEST_SSID);
         verify(mWifiNative).setRoamingMode(WIFI_IFACE_NAME, DEFAULT_ROAMING_MODE);
     }
+
+    @Test
+    public void testApplyWifiRoamingMode_bssidPinned() {
+        when(mWifiRoamingConfigStore.getRoamingMode(TEST_SSID)).thenReturn(
+                TEST_ROAMING_MODE);
+        mWifiRoamingModeManager.applyWifiRoamingMode(WIFI_IFACE_NAME, TEST_SSID, true);
+        verify(mWifiRoamingConfigStore, never()).getRoamingMode(anyString());
+        verify(mWifiNative).setRoamingMode(WIFI_IFACE_NAME, WifiManager.ROAMING_MODE_NONE);
+    }
+
+    @Test
+    public void testApplyWifiRoamingMode_bssidNotPinned() {
+        when(mWifiRoamingConfigStore.getRoamingMode(TEST_SSID)).thenReturn(
+                TEST_ROAMING_MODE);
+        mWifiRoamingModeManager.applyWifiRoamingMode(WIFI_IFACE_NAME, TEST_SSID, false);
+        verify(mWifiRoamingConfigStore).getRoamingMode(TEST_SSID);
+        verify(mWifiNative).setRoamingMode(WIFI_IFACE_NAME, TEST_ROAMING_MODE);
+    }
 }
